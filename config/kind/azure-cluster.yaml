@@ -1,0 +1,29 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: azure-cluster
+nodes:
+  - role: control-plane
+    labels:
+      cloud: azure
+      region: eastus
+      zone: eastus-1
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "cloud=azure,region=eastus,zone=eastus-1,instance-type=Standard_D2s_v3"
+  - role: worker
+    labels:
+      cloud: azure
+      region: eastus
+      zone: eastus-2
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "cloud=azure,region=eastus,zone=eastus-2,instance-type=Standard_D4s_v3"
+networking:
+  podSubnet: "10.246.0.0/16"
+  serviceSubnet: "10.98.0.0/12"
