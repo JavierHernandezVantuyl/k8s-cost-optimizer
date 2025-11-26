@@ -1,0 +1,94 @@
+{
+  "title": "Optimization Savings Tracker",
+  "uid": "savings-tracker",
+  "tags": ["kubernetes", "savings", "optimization"],
+  "timezone": "",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Potential Savings",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "rawSql": "SELECT COALESCE(SUM(estimated_savings), 0) as value FROM recommendations WHERE status = 'pending'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Realized Savings (Last 30 Days)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "rawSql": "SELECT COALESCE(SUM(savings_realized), 0) as value FROM optimization_history WHERE applied_at >= NOW() - INTERVAL '30 days'",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": {"mode": "thresholds"}
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Pending Recommendations",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as value FROM recommendations WHERE status = 'pending'",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Applied Optimizations",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) as value FROM recommendations WHERE status = 'applied'",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Savings Trend (Last 30 Days)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "rawSql": "SELECT applied_at as time, SUM(savings_realized) OVER (ORDER BY applied_at) as value FROM optimization_history WHERE applied_at >= NOW() - INTERVAL '30 days' ORDER BY applied_at",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

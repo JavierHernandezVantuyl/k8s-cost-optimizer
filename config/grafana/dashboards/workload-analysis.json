@@ -1,0 +1,63 @@
+{
+  "title": "Workload Cost Analysis",
+  "uid": "workload-analysis",
+  "tags": ["kubernetes", "workloads", "cost"],
+  "timezone": "",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "CPU Usage by Workload",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "k8s_workload_cpu_usage_cores",
+          "legendFormat": "{{cluster}}/{{namespace}}/{{workload}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Memory Usage by Workload",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "k8s_workload_memory_usage_bytes",
+          "legendFormat": "{{cluster}}/{{namespace}}/{{workload}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Top 10 CPU Consumers",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "topk(10, k8s_workload_cpu_usage_cores)",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Top 10 Memory Consumers",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {
+          "expr": "topk(10, k8s_workload_memory_usage_bytes)",
+          "refId": "A",
+          "format": "table"
+        }
+      ]
+    }
+  ]
+}
