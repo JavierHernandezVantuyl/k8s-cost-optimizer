@@ -1,19 +1,18 @@
-.PHONY: help setup start stop clean status logs health-check clusters clusters-clean deploy-monitoring
+.PHONY: help setup start stop clean status logs health-check clusters clusters-clean
 
 help:
 	@echo "K8s Cost Optimizer - Infrastructure Management"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  setup           - Install dependencies and create Kind clusters"
-	@echo "  start           - Start all Docker services"
-	@echo "  stop            - Stop all Docker services"
-	@echo "  clean           - Complete cleanup (stop services and remove clusters)"
-	@echo "  status          - Show status of all components"
-	@echo "  logs            - Tail logs from all services"
-	@echo "  health-check    - Verify all services are running properly"
-	@echo "  clusters        - Create Kind clusters only"
-	@echo "  clusters-clean  - Remove Kind clusters only"
-	@echo "  deploy-monitoring - Deploy monitoring stack to all Kind clusters"
+	@echo "  setup         - Install dependencies and create Kind clusters"
+	@echo "  start         - Start all Docker services"
+	@echo "  stop          - Stop all Docker services"
+	@echo "  clean         - Complete cleanup (stop services and remove clusters)"
+	@echo "  status        - Show status of all components"
+	@echo "  logs          - Tail logs from all services"
+	@echo "  health-check  - Verify all services are running properly"
+	@echo "  clusters      - Create Kind clusters only"
+	@echo "  clusters-clean - Remove Kind clusters only"
 	@echo ""
 
 setup:
@@ -108,21 +107,3 @@ clusters:
 clusters-clean:
 	@echo "==> Removing Kind clusters..."
 	@bash scripts/cleanup.sh
-
-deploy-monitoring:
-	@echo "==> Deploying monitoring stack to Kind clusters..."
-	@echo ""
-	@for cluster in aws-cluster gcp-cluster azure-cluster; do \
-		echo "==> Deploying to $$cluster..."; \
-		kubectl apply -f manifests/monitoring/node-exporter-daemonset.yaml --context kind-$$cluster; \
-		kubectl apply -f manifests/monitoring/kube-state-metrics-deployment.yaml --context kind-$$cluster; \
-		kubectl apply -f manifests/monitoring/prometheus-configmap.yaml --context kind-$$cluster; \
-		echo "  ✓ Monitoring stack deployed to $$cluster"; \
-		echo ""; \
-	done
-	@echo "==> Monitoring deployment complete!"
-	@echo ""
-	@echo "Verify with:"
-	@echo "  kubectl get pods -n monitoring --context kind-aws-cluster"
-	@echo "  kubectl get pods -n monitoring --context kind-gcp-cluster"
-	@echo "  kubectl get pods -n monitoring --context kind-azure-cluster"

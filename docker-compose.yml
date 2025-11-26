@@ -12,8 +12,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/01-init-db.sh:ro
-      - ./scripts/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-optimizer}"]
       interval: 10s
@@ -96,8 +95,6 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./config/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
-      - ./config/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
-      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
@@ -107,36 +104,6 @@ services:
       - optimizer-network
     depends_on:
       - prometheus
-
-  metrics-generator:
-    build:
-      context: ./services/metrics-generator
-      dockerfile: Dockerfile
-    container_name: k8s-optimizer-metrics-generator
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-k8s_optimizer}
-      POSTGRES_USER: ${POSTGRES_USER:-optimizer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-optimizer_dev_pass}
-      METRICS_PORT: 8001
-      GENERATION_INTERVAL: 60
-      GENERATE_HISTORICAL: "true"
-      HISTORICAL_DAYS: 7
-    ports:
-      - "8001:8001"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/metrics')"]
-      interval: 30s
-      timeout: 10s
-      start_period: 60s
-      retries: 3
-    networks:
-      - optimizer-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
 
 networks:
   optimizer-network:
