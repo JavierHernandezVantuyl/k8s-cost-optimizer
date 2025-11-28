@@ -1,0 +1,88 @@
+{
+  "title": "Detailed Resource Utilization",
+  "uid": "resource-usage",
+  "tags": ["kubernetes", "resources", "utilization"],
+  "timezone": "",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "CPU Utilization by Namespace",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(k8s_workload_cpu_usage_cores) by (namespace)",
+          "legendFormat": "{{namespace}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Memory Utilization by Namespace",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(k8s_workload_memory_usage_bytes) by (namespace)",
+          "legendFormat": "{{namespace}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Network Traffic (RX)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(k8s_workload_network_rx_bytes[5m])) by (cluster, namespace)",
+          "legendFormat": "{{cluster}}/{{namespace}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Network Traffic (TX)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(k8s_workload_network_tx_bytes[5m])) by (cluster, namespace)",
+          "legendFormat": "{{cluster}}/{{namespace}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Workload Types Distribution",
+      "type": "piechart",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 16},
+      "targets": [
+        {
+          "expr": "count(k8s_workload_cpu_usage_cores) by (kind)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Resource Usage Heatmap",
+      "type": "heatmap",
+      "gridPos": {"h": 8, "w": 16, "x": 8, "y": 16},
+      "targets": [
+        {
+          "expr": "k8s_workload_cpu_usage_cores",
+          "refId": "A",
+          "format": "time_series"
+        }
+      ]
+    }
+  ]
+}

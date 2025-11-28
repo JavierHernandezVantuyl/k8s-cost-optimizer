@@ -1,21 +1,18 @@
-.PHONY: help setup start stop clean status logs health-check clusters clusters-clean deploy-operator test-operator operator-logs
+.PHONY: help setup start stop clean status logs health-check clusters clusters-clean
 
 help:
 	@echo "K8s Cost Optimizer - Infrastructure Management"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  setup          - Install dependencies and create Kind clusters"
-	@echo "  start          - Start all Docker services"
-	@echo "  stop           - Stop all Docker services"
-	@echo "  clean          - Complete cleanup (stop services and remove clusters)"
-	@echo "  status         - Show status of all components"
-	@echo "  logs           - Tail logs from all services"
-	@echo "  health-check   - Verify all services are running properly"
-	@echo "  clusters       - Create Kind clusters only"
+	@echo "  setup         - Install dependencies and create Kind clusters"
+	@echo "  start         - Start all Docker services"
+	@echo "  stop          - Stop all Docker services"
+	@echo "  clean         - Complete cleanup (stop services and remove clusters)"
+	@echo "  status        - Show status of all components"
+	@echo "  logs          - Tail logs from all services"
+	@echo "  health-check  - Verify all services are running properly"
+	@echo "  clusters      - Create Kind clusters only"
 	@echo "  clusters-clean - Remove Kind clusters only"
-	@echo "  deploy-operator - Deploy cost optimization operator to all clusters"
-	@echo "  test-operator  - Run operator test suite"
-	@echo "  operator-logs  - View operator logs"
 	@echo ""
 
 setup:
@@ -110,28 +107,3 @@ clusters:
 clusters-clean:
 	@echo "==> Removing Kind clusters..."
 	@bash scripts/cleanup.sh
-
-deploy-operator:
-	@echo "==> Deploying Cost Optimization Operator to all clusters..."
-	@for cluster in aws-cluster gcp-cluster azure-cluster; do \
-		echo ""; \
-		echo "Deploying to $$cluster..."; \
-		bash services/operator/deploy.sh $$cluster; \
-	done
-	@echo ""
-	@echo "==> Operator deployed to all clusters!"
-	@echo ""
-	@echo "View operator status:"
-	@echo "  make operator-logs"
-	@echo ""
-	@echo "Apply example optimization:"
-	@echo "  kubectl apply -f services/operator/manifests/examples/cpu-optimization.yaml"
-
-test-operator:
-	@echo "==> Running operator test suite..."
-	@bash services/operator/tests/test_operator.sh aws-cluster
-
-operator-logs:
-	@echo "==> Viewing operator logs (Ctrl+C to exit)..."
-	@kubectl config use-context kind-aws-cluster
-	@kubectl logs -n cost-optimizer -l app=cost-optimizer-operator -f

@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  postgres:
+    ports:
+      - "15432:5432"
+    environment:
+      POSTGRES_PASSWORD: custom_password
+
+  redis:
+    ports:
+      - "16379:6379"
+
+  minio:
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+
+  prometheus:
+    ports:
+      - "19090:9090"
+    volumes:
+      - ./config/prometheus-custom.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    ports:
+      - "13000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: custom_admin_password
