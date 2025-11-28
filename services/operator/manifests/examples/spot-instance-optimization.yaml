@@ -1,0 +1,22 @@
+apiVersion: optimization.k8s.io/v1
+kind: CostOptimization
+metadata:
+  name: optimize-batch-spot
+  namespace: default
+  labels:
+    app: batch-processor
+    optimization-type: spot
+spec:
+  targetWorkload:
+    name: batch-processor
+    kind: Deployment
+    namespace: default
+  optimizationType: SPOT_INSTANCES
+  maxChangePercent: 100
+  minConfidence: 0.80
+  dryRun: true
+  autoApply: false
+  rollbackOnFailure: true
+  maxRiskLevel: MEDIUM
+  metricsWindow: 30d
+  schedule: "0 0 1 * *"
