@@ -1,0 +1,22 @@
+apiVersion: optimization.k8s.io/v1
+kind: CostOptimization
+metadata:
+  name: optimize-api-replicas
+  namespace: default
+  labels:
+    app: api-gateway
+    optimization-type: replicas
+spec:
+  targetWorkload:
+    name: api-gateway
+    kind: Deployment
+    namespace: default
+  optimizationType: REPLICAS
+  maxChangePercent: 40
+  minConfidence: 0.80
+  dryRun: false
+  autoApply: true
+  rollbackOnFailure: true
+  maxRiskLevel: LOW
+  metricsWindow: 7d
+  schedule: "0 */12 * * *"
