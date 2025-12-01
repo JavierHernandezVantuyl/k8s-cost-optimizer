@@ -105,41 +105,6 @@ services:
     depends_on:
       - prometheus
 
-  optimizer-api:
-    build:
-      context: ./services/optimizer-api
-      dockerfile: Dockerfile
-    container_name: k8s-optimizer-api
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-k8s_optimizer}
-      POSTGRES_USER: ${POSTGRES_USER:-optimizer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-optimizer_dev_pass}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    ports:
-      - "8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - optimizer-network
-
-  dashboard:
-    build:
-      context: ./services/dashboard
-      dockerfile: Dockerfile
-    container_name: k8s-optimizer-dashboard
-    ports:
-      - "8080:80"
-    depends_on:
-      - optimizer-api
-    networks:
-      - optimizer-network
-
 networks:
   optimizer-network:
     driver: bridge

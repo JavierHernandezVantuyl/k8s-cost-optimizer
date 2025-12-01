@@ -1,0 +1,22 @@
+apiVersion: optimization.k8s.io/v1
+kind: CostOptimization
+metadata:
+  name: optimize-frontend-cpu
+  namespace: default
+  labels:
+    app: frontend
+    optimization-type: cpu
+spec:
+  targetWorkload:
+    name: frontend-web
+    kind: Deployment
+    namespace: default
+  optimizationType: CPU
+  maxChangePercent: 50
+  minConfidence: 0.75
+  dryRun: true
+  autoApply: false
+  rollbackOnFailure: true
+  maxRiskLevel: MEDIUM
+  metricsWindow: 7d
+  schedule: "0 */6 * * *"

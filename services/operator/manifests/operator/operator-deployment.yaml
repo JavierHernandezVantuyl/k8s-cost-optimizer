@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cost-optimizer-operator
+  namespace: cost-optimizer
+  labels:
+    app: cost-optimizer-operator
+    component: operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cost-optimizer-operator
+  template:
+    metadata:
+      labels:
+        app: cost-optimizer-operator
+        component: operator
+    spec:
+      serviceAccountName: cost-optimizer-operator
+      containers:
+        - name: operator
+          image: cost-optimizer-operator:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: OPTIMIZER_API_URL
+              value: "http://optimizer-api.cost-optimizer.svc.cluster.local:8000"
+            - name: REDIS_HOST
+              value: "redis.cost-optimizer.svc.cluster.local"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: PROMETHEUS_PORT
+              value: "8080"
+            - name: KOPF_LOG_LEVEL
+              value: "INFO"
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      restartPolicy: Always

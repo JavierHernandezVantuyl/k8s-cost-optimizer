@@ -40,13 +40,11 @@ start:
 	@echo "==> All services started successfully!"
 	@echo ""
 	@echo "Service URLs:"
-	@echo "  Dashboard:       http://localhost:8080"
-	@echo "  Optimizer API:   http://localhost:8000"
-	@echo "  Grafana:         http://localhost:3000 (admin/admin123)"
-	@echo "  Prometheus:      http://localhost:9090"
-	@echo "  MinIO:           http://localhost:9001 (minioadmin/minioadmin123)"
-	@echo "  PostgreSQL:      localhost:5432 (optimizer/optimizer_dev_pass)"
-	@echo "  Redis:           localhost:6379"
+	@echo "  Grafana:    http://localhost:3000 (admin/admin123)"
+	@echo "  Prometheus: http://localhost:9090"
+	@echo "  MinIO:      http://localhost:9001 (minioadmin/minioadmin123)"
+	@echo "  PostgreSQL: localhost:5432 (optimizer/optimizer_dev_pass)"
+	@echo "  Redis:      localhost:6379"
 	@echo ""
 
 stop:

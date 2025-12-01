@@ -1,0 +1,22 @@
+apiVersion: optimization.k8s.io/v1
+kind: CostOptimization
+metadata:
+  name: optimize-microservice-all
+  namespace: production
+  labels:
+    app: microservice-analytics
+    optimization-type: all
+spec:
+  targetWorkload:
+    name: microservice-analytics
+    kind: Deployment
+    namespace: production
+  optimizationType: ALL
+  maxChangePercent: 30
+  minConfidence: 0.85
+  dryRun: false
+  autoApply: true
+  rollbackOnFailure: true
+  maxRiskLevel: MEDIUM
+  metricsWindow: 14d
+  schedule: "0 0 * * 0"
