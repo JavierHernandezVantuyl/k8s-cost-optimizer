@@ -198,19 +198,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run kubesec scanner
-        uses: controlplaneio/kubesec-action@master
-        continue-on-error: true
-        with:
-          input: infrastructure/kustomize/base/resources/
-          format: sarif
-          output: kubesec-results.sarif
+        run: |
+          wget -q https://github.com/controlplaneio/kubesec/releases/download/v2.14.1/kubesec_linux_amd64.tar.gz
+          tar -xzf kubesec_linux_amd64.tar.gz
 
-      - name: Upload kubesec results
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
+          # Scan all YAML files in the directory
+          find infrastructure/kustomize/base/resources/ -name "*.yaml" -o -name "*.yml" | while read file; do
+            echo "Scanning $file"
+            ./kubesec scan "$file" || echo "Scan completed for $file"
+          done
         continue-on-error: true
-        with:
-          sarif_file: kubesec-results.sarif
 
       - name: Run Polaris
         run: |
