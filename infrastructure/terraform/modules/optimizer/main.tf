@@ -12,10 +12,10 @@ resource "kubernetes_namespace" "optimizer" {
     labels = merge(
       var.common_labels,
       {
-        app                       = "k8s-cost-optimizer"
-        environment               = var.environment
-        "cost-center"             = var.cost_center
-        "managed-by"              = "terraform"
+        app           = "k8s-cost-optimizer"
+        environment   = var.environment
+        "cost-center" = var.cost_center
+        "managed-by"  = "terraform"
       }
     )
   }
@@ -86,14 +86,14 @@ resource "kubernetes_config_map" "optimizer_config" {
   }
 
   data = {
-    LOG_LEVEL           = var.log_level
-    METRICS_ENABLED     = tostring(var.metrics_enabled)
-    METRICS_PORT        = tostring(var.metrics_port)
-    ANALYSIS_INTERVAL   = var.analysis_interval
-    MIN_CONFIDENCE      = tostring(var.min_confidence_threshold)
-    ENABLE_AUTO_APPLY   = tostring(var.enable_auto_apply)
-    DRY_RUN_MODE        = tostring(var.dry_run_mode)
-    CLOUD_PROVIDERS     = join(",", var.cloud_providers)
+    LOG_LEVEL         = var.log_level
+    METRICS_ENABLED   = tostring(var.metrics_enabled)
+    METRICS_PORT      = tostring(var.metrics_port)
+    ANALYSIS_INTERVAL = var.analysis_interval
+    MIN_CONFIDENCE    = tostring(var.min_confidence_threshold)
+    ENABLE_AUTO_APPLY = tostring(var.enable_auto_apply)
+    DRY_RUN_MODE      = tostring(var.dry_run_mode)
+    CLOUD_PROVIDERS   = join(",", var.cloud_providers)
   }
 }
 
@@ -117,7 +117,7 @@ resource "kubernetes_service_account" "optimizer" {
 # ClusterRole for reading cluster resources
 resource "kubernetes_cluster_role" "optimizer_reader" {
   metadata {
-    name = "${var.namespace}-optimizer-reader"
+    name   = "${var.namespace}-optimizer-reader"
     labels = var.common_labels
   }
 
@@ -155,7 +155,7 @@ resource "kubernetes_cluster_role" "optimizer_reader" {
 # ClusterRoleBinding
 resource "kubernetes_cluster_role_binding" "optimizer_reader" {
   metadata {
-    name = "${var.namespace}-optimizer-reader-binding"
+    name   = "${var.namespace}-optimizer-reader-binding"
     labels = var.common_labels
   }
 
@@ -576,9 +576,9 @@ resource "kubernetes_ingress_v1" "optimizer" {
     annotations = merge(
       var.ingress_annotations,
       {
-        "kubernetes.io/ingress.class"                = var.ingress_class
-        "cert-manager.io/cluster-issuer"             = var.cert_manager_issuer
-        "nginx.ingress.kubernetes.io/ssl-redirect"   = "true"
+        "kubernetes.io/ingress.class"                 = var.ingress_class
+        "cert-manager.io/cluster-issuer"              = var.cert_manager_issuer
+        "nginx.ingress.kubernetes.io/ssl-redirect"    = "true"
         "nginx.ingress.kubernetes.io/proxy-body-size" = "50m"
       }
     )

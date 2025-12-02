@@ -498,7 +498,7 @@ resource "aws_security_group" "redis" {
 }
 
 resource "aws_elasticache_replication_group" "redis" {
-  replication_group_id       = "${var.cluster_name}-redis"
+  replication_group_id          = "${var.cluster_name}-redis"
   replication_group_description = "Redis for K8s Cost Optimizer"
 
   engine               = "redis"

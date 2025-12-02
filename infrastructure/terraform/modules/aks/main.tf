@@ -249,8 +249,8 @@ resource "azurerm_postgresql_flexible_server" "main" {
   administrator_password = var.db_admin_password
   zone                   = "1"
 
-  storage_mb   = var.db_storage_mb
-  sku_name     = var.db_sku_name
+  storage_mb            = var.db_storage_mb
+  sku_name              = var.db_sku_name
   backup_retention_days = var.environment == "prod" ? 30 : 7
 
   high_availability {
