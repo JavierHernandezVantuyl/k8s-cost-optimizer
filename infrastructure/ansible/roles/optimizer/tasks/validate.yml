@@ -1,0 +1,36 @@
+---
+# Validation tasks for optimizer deployment
+
+- name: Get all pods in namespace
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig }}"
+    kind: Pod
+    namespace: "{{ optimizer_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/name=cost-optimizer"
+  register: optimizer_pods
+
+- name: Check pod status
+  ansible.builtin.assert:
+    that:
+      - item.status.phase == "Running"
+    fail_msg: "Pod {{ item.metadata.name }} is not running ({{ item.status.phase }})"
+    success_msg: "Pod {{ item.metadata.name }} is running"
+  loop: "{{ optimizer_pods.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+
+- name: Get API service
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig }}"
+    kind: Service
+    name: "{{ helm_release_name | default('cost-optimizer') }}-api"
+    namespace: "{{ optimizer_namespace }}"
+  register: api_service
+
+- name: Display service information
+  ansible.builtin.debug:
+    msg:
+      - "Service: {{ api_service.resources[0].metadata.name }}"
+      - "Type: {{ api_service.resources[0].spec.type }}"
+      - "Cluster IP: {{ api_service.resources[0].spec.clusterIP }}"

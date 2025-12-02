@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cost-optimizer-dev
+
+bases:
+  - ../../base
+
+nameSuffix: -dev
+
+commonLabels:
+  environment: dev
+  cost-center: development
+
+# Override config for dev
+configMapGenerator:
+  - name: optimizer-config
+    behavior: merge
+    literals:
+      - LOG_LEVEL=DEBUG
+      - ANALYSIS_INTERVAL=1h
+      - MIN_CONFIDENCE=0.6
+      - DRY_RUN_MODE=true
+      - ENABLE_AUTO_APPLY=false
+
+# Override images for dev
+images:
+  - name: optimizer-api
+    newTag: dev
+  - name: optimizer-dashboard
+    newTag: dev
+
+# Dev-specific replicas
+replicas:
+  - name: optimizer-api
+    count: 1
+  - name: optimizer-dashboard
+    count: 1
+
+# Dev-specific resource limits
+patchesStrategicMerge:
+  - patches/api-resources.yaml
+  - patches/ingress.yaml

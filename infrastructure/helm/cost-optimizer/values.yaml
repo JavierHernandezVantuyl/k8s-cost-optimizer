@@ -1,0 +1,341 @@
+# Default values for cost-optimizer Helm chart
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings
+global:
+  environment: production
+  costCenter: infrastructure
+
+# Namespace configuration
+namespaceCreate: true
+namespace: cost-optimizer
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/name: cost-optimizer
+  app.kubernetes.io/managed-by: helm
+
+# Optimizer API configuration
+api:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: your-registry/k8s-cost-optimizer-api
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets: []
+  # - name: regcred
+
+  serviceAccount:
+    create: true
+    annotations: {}
+    # eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT:role/optimizer-role
+    name: "optimizer-sa"
+
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+    annotations: {}
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - api
+          topologyKey: kubernetes.io/hostname
+
+  env:
+    LOG_LEVEL: INFO
+    METRICS_ENABLED: "true"
+    METRICS_PORT: "9090"
+    ANALYSIS_INTERVAL: "6h"
+    MIN_CONFIDENCE: "0.7"
+    ENABLE_AUTO_APPLY: "false"
+    DRY_RUN_MODE: "true"
+    CLOUD_PROVIDERS: "aws,gcp,azure"
+
+# Dashboard configuration
+dashboard:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: your-registry/k8s-cost-optimizer-dashboard
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets: []
+
+  podAnnotations: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    fsGroup: 101
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+    annotations: {}
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+  nodeSelector: {}
+
+  tolerations: []
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+            - key: app.kubernetes.io/component
+              operator: In
+              values:
+              - dashboard
+          topologyKey: kubernetes.io/hostname
+
+# Database configuration (external)
+database:
+  host: ""
+  port: 5432
+  name: k8s_optimizer
+  username: optimizer
+  # Password should be provided via secrets
+  existingSecret: postgres-credentials
+  existingSecretPasswordKey: password
+
+# Redis configuration (external)
+redis:
+  host: ""
+  port: 6379
+  # Password should be provided via secrets
+  existingSecret: redis-credentials
+  existingSecretPasswordKey: password
+
+# Storage configuration (S3/MinIO/GCS/Azure Blob)
+storage:
+  endpoint: ""
+  bucket: optimizer-data
+  # Credentials should be provided via secrets
+  existingSecret: storage-credentials
+  existingSecretAccessKeyKey: access_key
+  existingSecretSecretKeyKey: secret_key
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  hosts:
+    - host: optimizer.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /
+          pathType: Prefix
+          service: dashboard
+          port: 80
+  tls:
+    - secretName: optimizer-tls
+      hosts:
+        - optimizer.example.com
+
+# RBAC configuration
+rbac:
+  create: true
+
+  # Cluster-wide read permissions
+  clusterRole:
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "nodes", "persistentvolumeclaims", "services", "namespaces"]
+        verbs: ["get", "list", "watch"]
+      - apiGroups: ["apps"]
+        resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+        verbs: ["get", "list", "watch"]
+      - apiGroups: ["batch"]
+        resources: ["jobs", "cronjobs"]
+        verbs: ["get", "list", "watch"]
+      - apiGroups: ["metrics.k8s.io"]
+        resources: ["pods", "nodes"]
+        verbs: ["get", "list"]
+      - apiGroups: ["autoscaling"]
+        resources: ["horizontalpodautoscalers"]
+        verbs: ["get", "list", "watch"]
+
+  # Namespace-scoped write permissions (if auto-apply enabled)
+  role:
+    enabled: false
+    rules:
+      - apiGroups: ["apps"]
+        resources: ["deployments", "statefulsets"]
+        verbs: ["get", "list", "watch", "patch", "update"]
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "list", "watch", "delete"]
+      - apiGroups: ["autoscaling"]
+        resources: ["horizontalpodautoscalers"]
+        verbs: ["get", "list", "watch", "create", "patch", "update"]
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: cost-optimizer
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+      ports:
+      - protocol: TCP
+        port: 8000
+  egress:
+    - to:
+      - namespaceSelector: {}
+      ports:
+      - protocol: UDP
+        port: 53
+    - to:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+          except:
+          - 169.254.169.254/32
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  api:
+    enabled: true
+    minAvailable: 1
+  dashboard:
+    enabled: true
+    minAvailable: 1
+
+# Monitoring and observability
+monitoring:
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+
+  prometheusRule:
+    enabled: false
+    rules: []
+
+# Additional volumes and volume mounts
+volumes: []
+volumeMounts: []
+
+# Priority class for pods
+priorityClassName: ""

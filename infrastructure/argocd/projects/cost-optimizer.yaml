@@ -1,0 +1,82 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: cost-optimizer
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: K8s Cost Optimizer - Multi-cloud cost optimization platform
+
+  # Source repositories
+  sourceRepos:
+    - 'https://github.com/your-org/k8s-cost-optimizer.git'
+    - 'https://charts.example.com/cost-optimizer'
+
+  # Destination clusters and namespaces
+  destinations:
+    - namespace: 'cost-optimizer*'
+      server: '*'
+    - namespace: 'argocd'
+      server: '*'
+
+  # Cluster resource whitelist
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+    - group: networking.k8s.io
+      kind: IngressClass
+
+  # Namespace resource whitelist (all resources allowed in namespaces)
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+
+  # Roles for controlling access
+  roles:
+    - name: admin
+      description: Full access to cost-optimizer project
+      policies:
+        - p, proj:cost-optimizer:admin, applications, *, cost-optimizer/*, allow
+      groups:
+        - cost-optimizer-admins
+
+    - name: developer
+      description: Developer access (read-only)
+      policies:
+        - p, proj:cost-optimizer:developer, applications, get, cost-optimizer/*, allow
+        - p, proj:cost-optimizer:developer, applications, sync, cost-optimizer/dev-*, allow
+      groups:
+        - cost-optimizer-developers
+
+    - name: viewer
+      description: Read-only access
+      policies:
+        - p, proj:cost-optimizer:viewer, applications, get, cost-optimizer/*, allow
+      groups:
+        - cost-optimizer-viewers
+
+  # Orphaned resources monitoring
+  orphanedResources:
+    warn: true
+
+  # Sync windows
+  syncWindows:
+    - kind: allow
+      schedule: '0 8-18 * * 1-5'
+      duration: 10h
+      applications:
+        - 'dev-*'
+      manualSync: true
+    - kind: deny
+      schedule: '0 0-6 * * *'
+      duration: 6h
+      applications:
+        - 'prod-*'
+      manualSync: false

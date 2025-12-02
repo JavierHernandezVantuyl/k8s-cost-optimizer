@@ -1,0 +1,125 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xpostgresdatabases.optimizer.k8s.io
+spec:
+  group: optimizer.k8s.io
+  names:
+    kind: XPostgresDatabase
+    plural: xpostgresdatabases
+  claimNames:
+    kind: PostgresDatabase
+    plural: postgresdatabases
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    storageGB:
+                      type: integer
+                      default: 20
+                    version:
+                      type: string
+                      default: "15"
+                    tier:
+                      type: string
+                      enum: [dev, prod]
+                      default: dev
+                  required:
+                    - tier
+              required:
+                - parameters
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: postgres-aws
+  labels:
+    provider: aws
+    database: postgres
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: optimizer.k8s.io/v1alpha1
+    kind: XPostgresDatabase
+
+  resources:
+    - name: rds-subnet-group
+      base:
+        apiVersion: rds.aws.upbound.io/v1beta1
+        kind: SubnetGroup
+        spec:
+          forProvider:
+            region: us-east-1
+            subnetIds: []  # Filled by patches
+            tags:
+              Name: optimizer-db-subnet-group
+
+    - name: rds-instance
+      base:
+        apiVersion: rds.aws.upbound.io/v1beta1
+        kind: Instance
+        spec:
+          forProvider:
+            region: us-east-1
+            engine: postgres
+            instanceClass: db.t3.micro
+            allocatedStorage: 20
+            storageType: gp2
+            username: optimizer
+            passwordSecretRef:
+              key: password
+              name: rds-password
+              namespace: crossplane-system
+            dbSubnetGroupNameSelector:
+              matchControllerRef: true
+            skipFinalSnapshot: true
+            publiclyAccessible: false
+            tags:
+              ManagedBy: crossplane
+              Application: cost-optimizer
+          writeConnectionSecretToRef:
+            namespace: crossplane-system
+
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.storageGB
+          toFieldPath: spec.forProvider.allocatedStorage
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.version
+          toFieldPath: spec.forProvider.engineVersion
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.tier
+          toFieldPath: spec.forProvider.instanceClass
+          transforms:
+            - type: map
+              map:
+                dev: db.t3.micro
+                prod: db.t3.medium
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.endpoint
+          toFieldPath: status.endpoint
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.port
+          toFieldPath: status.port
+
+      connectionDetails:
+        - name: host
+          fromConnectionSecretKey: endpoint
+        - name: port
+          fromConnectionSecretKey: port
+        - name: username
+          fromConnectionSecretKey: username
+        - name: password
+          fromConnectionSecretKey: password
+        - name: database
+          fromConnectionSecretKey: database

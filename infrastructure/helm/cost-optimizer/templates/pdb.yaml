@@ -1,0 +1,35 @@
+{{- if .Values.podDisruptionBudget.api.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.api.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "cost-optimizer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+{{- end }}
+
+{{- if .Values.podDisruptionBudget.dashboard.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-dashboard
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dashboard
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.dashboard.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "cost-optimizer.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: dashboard
+{{- end }}

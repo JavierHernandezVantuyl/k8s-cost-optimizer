@@ -1,0 +1,22 @@
+apiVersion: v2
+name: cost-optimizer
+description: A Helm chart for K8s Cost Optimizer - Multi-cloud Kubernetes cost optimization platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://github.com/your-org/k8s-cost-optimizer
+sources:
+  - https://github.com/your-org/k8s-cost-optimizer
+keywords:
+  - kubernetes
+  - cost-optimization
+  - finops
+  - multi-cloud
+  - aws
+  - gcp
+  - azure
+maintainers:
+  - name: Platform Team
+    email: platform@example.com
+dependencies: []
+icon: https://example.com/optimizer-icon.png

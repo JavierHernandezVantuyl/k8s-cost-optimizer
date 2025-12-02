@@ -1,0 +1,83 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: staging-cost-optimizer
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: cost-optimizer-alerts
+spec:
+  project: cost-optimizer
+
+  # Source using Helm
+  source:
+    repoURL: https://github.com/your-org/k8s-cost-optimizer.git
+    targetRevision: HEAD
+    path: infrastructure/helm/cost-optimizer
+    helm:
+      valueFiles:
+        - values.yaml
+      values: |
+        global:
+          environment: staging
+          costCenter: infrastructure
+
+        api:
+          replicaCount: 2
+          image:
+            tag: staging
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          autoscaling:
+            enabled: true
+            minReplicas: 2
+            maxReplicas: 5
+
+        dashboard:
+          replicaCount: 2
+          image:
+            tag: staging
+
+        ingress:
+          enabled: true
+          hosts:
+            - host: optimizer-staging.example.com
+              paths:
+                - path: /api
+                  service: api
+                  port: 8000
+                - path: /
+                  service: dashboard
+                  port: 80
+
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cost-optimizer-staging
+
+  # Sync policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

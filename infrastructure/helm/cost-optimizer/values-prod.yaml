@@ -1,0 +1,130 @@
+# Production values for cost-optimizer
+# Override default values for production environment
+
+global:
+  environment: production
+  costCenter: infrastructure
+
+api:
+  replicaCount: 3
+
+  image:
+    tag: "1.0.0"  # Use specific version in production
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  env:
+    LOG_LEVEL: INFO
+    METRICS_ENABLED: "true"
+    ANALYSIS_INTERVAL: "6h"
+    MIN_CONFIDENCE: "0.75"
+    ENABLE_AUTO_APPLY: "false"  # Set to true only after testing
+    DRY_RUN_MODE: "false"
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/component
+            operator: In
+            values:
+            - api
+        topologyKey: kubernetes.io/hostname
+
+dashboard:
+  replicaCount: 3
+
+  image:
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/component
+            operator: In
+            values:
+            - dashboard
+        topologyKey: kubernetes.io/hostname
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: optimizer.production.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: api
+          port: 8000
+        - path: /
+          pathType: Prefix
+          service: dashboard
+          port: 80
+  tls:
+    - secretName: optimizer-prod-tls
+      hosts:
+        - optimizer.production.example.com
+
+rbac:
+  create: true
+  role:
+    enabled: false  # Disable write permissions in production initially
+
+networkPolicy:
+  enabled: true
+
+podDisruptionBudget:
+  api:
+    enabled: true
+    minAvailable: 2
+  dashboard:
+    enabled: true
+    minAvailable: 2
+
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    labels:
+      prometheus: kube-prometheus
+
+priorityClassName: "high-priority"

@@ -1,0 +1,55 @@
+{{- if .Values.api.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  {{- with .Values.api.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.api.service.type }}
+  ports:
+  - port: {{ .Values.api.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    {{- include "cost-optimizer.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+{{- end }}
+
+{{- if .Values.dashboard.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-dashboard
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dashboard
+  {{- with .Values.dashboard.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.dashboard.service.type }}
+  ports:
+  - port: {{ .Values.dashboard.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "cost-optimizer.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: dashboard
+{{- end }}

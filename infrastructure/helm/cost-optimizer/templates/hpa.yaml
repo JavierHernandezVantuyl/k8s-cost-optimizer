@@ -1,0 +1,63 @@
+{{- if .Values.api.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "cost-optimizer.fullname" . }}-api
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+  {{- if .Values.api.autoscaling.targetCPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.api.autoscaling.targetCPUUtilizationPercentage }}
+  {{- end }}
+  {{- if .Values.api.autoscaling.targetMemoryUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.api.autoscaling.targetMemoryUtilizationPercentage }}
+  {{- end }}
+{{- end }}
+
+{{- if .Values.dashboard.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-dashboard
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dashboard
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "cost-optimizer.fullname" . }}-dashboard
+  minReplicas: {{ .Values.dashboard.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.dashboard.autoscaling.maxReplicas }}
+  metrics:
+  {{- if .Values.dashboard.autoscaling.targetCPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.dashboard.autoscaling.targetCPUUtilizationPercentage }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,18 @@
+---
+# Optimizer Role - Main tasks
+
+- name: Include prerequisites tasks
+  ansible.builtin.import_tasks: prerequisites.yml
+  tags: [prerequisites]
+
+- name: Include secrets management tasks
+  ansible.builtin.import_tasks: secrets.yml
+  tags: [secrets]
+
+- name: Include deployment tasks
+  ansible.builtin.import_tasks: deploy.yml
+  tags: [deploy]
+
+- name: Include validation tasks
+  ansible.builtin.import_tasks: validate.yml
+  tags: [validate]

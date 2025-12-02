@@ -1,0 +1,49 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prod-cost-optimizer
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: cost-optimizer-prod
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: cost-optimizer-prod
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: cost-optimizer-prod
+spec:
+  project: cost-optimizer
+
+  # Source using Kustomize with prod overlay
+  source:
+    repoURL: https://github.com/your-org/k8s-cost-optimizer.git
+    targetRevision: v1.0.0  # Use tags for production
+    path: infrastructure/kustomize/overlays/prod
+
+  # Destination
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cost-optimizer
+
+  # Sync policy - manual sync for production
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Ignore HPA-managed replicas
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+      jsonPointers:
+        - /status
