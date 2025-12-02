@@ -54,12 +54,20 @@ jobs:
 
       - name: Terraform Init
         id: init
-        run: terraform init
+        run: terraform init -backend=false
         working-directory: infrastructure/terraform/environments/${{ matrix.environment }}
 
       - name: Terraform Validate
         id: validate
-        run: terraform validate -no-color
+        run: |
+          terraform validate -no-color \
+            -var="postgres_host=dummy" \
+            -var="postgres_username=dummy" \
+            -var="postgres_password=dummy" \
+            -var="redis_host=dummy" \
+            -var="storage_endpoint=dummy" \
+            -var="storage_access_key=dummy" \
+            -var="storage_secret_key=dummy"
         working-directory: infrastructure/terraform/environments/${{ matrix.environment }}
 
       - name: Comment Format Status
