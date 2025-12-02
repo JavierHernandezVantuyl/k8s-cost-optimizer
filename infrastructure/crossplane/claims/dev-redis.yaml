@@ -1,0 +1,15 @@
+apiVersion: optimizer.k8s.io/v1alpha1
+kind: RedisCluster
+metadata:
+  name: dev-optimizer-redis
+  namespace: cost-optimizer-dev
+spec:
+  parameters:
+    nodeType: cache.t3.micro
+    tier: dev
+  compositionSelector:
+    matchLabels:
+      provider: aws
+      cache: redis
+  writeConnectionSecretToRef:
+    name: redis-credentials

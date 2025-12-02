@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.api.env }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}

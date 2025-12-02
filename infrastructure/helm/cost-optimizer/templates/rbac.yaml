@@ -1,0 +1,55 @@
+{{- if .Values.rbac.create }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-reader
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+rules:
+{{- toYaml .Values.rbac.clusterRole.rules | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-reader-binding
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "cost-optimizer.fullname" . }}-reader
+subjects:
+- kind: ServiceAccount
+  name: {{ include "cost-optimizer.serviceAccountName" . }}
+  namespace: {{ .Values.namespace }}
+
+{{- if .Values.rbac.role.enabled }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-modifier
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+rules:
+{{- toYaml .Values.rbac.role.rules | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "cost-optimizer.fullname" . }}-modifier-binding
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "cost-optimizer.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "cost-optimizer.fullname" . }}-modifier
+subjects:
+- kind: ServiceAccount
+  name: {{ include "cost-optimizer.serviceAccountName" . }}
+  namespace: {{ .Values.namespace }}
+{{- end }}
+{{- end }}

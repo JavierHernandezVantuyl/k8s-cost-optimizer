@@ -1,0 +1,15 @@
+apiVersion: optimizer.k8s.io/v1alpha1
+kind: ObjectStorage
+metadata:
+  name: dev-optimizer-storage
+  namespace: cost-optimizer-dev
+spec:
+  parameters:
+    bucketName: optimizer-dev-data
+    tier: dev
+  compositionSelector:
+    matchLabels:
+      provider: aws
+      storage: s3
+  writeConnectionSecretToRef:
+    name: storage-credentials

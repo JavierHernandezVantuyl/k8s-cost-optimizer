@@ -1,0 +1,117 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xredisclusters.optimizer.k8s.io
+spec:
+  group: optimizer.k8s.io
+  names:
+    kind: XRedisCluster
+    plural: xredisclusters
+  claimNames:
+    kind: RedisCluster
+    plural: redisclusters
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    nodeType:
+                      type: string
+                      default: cache.t3.micro
+                    tier:
+                      type: string
+                      enum: [dev, prod]
+                      default: dev
+                  required:
+                    - tier
+              required:
+                - parameters
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: redis-aws
+  labels:
+    provider: aws
+    cache: redis
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: optimizer.k8s.io/v1alpha1
+    kind: XRedisCluster
+
+  resources:
+    - name: elasticache-subnet-group
+      base:
+        apiVersion: elasticache.aws.upbound.io/v1beta1
+        kind: SubnetGroup
+        spec:
+          forProvider:
+            region: us-east-1
+            subnetIds: []  # Filled by patches
+            tags:
+              Name: optimizer-redis-subnet-group
+
+    - name: elasticache-replication-group
+      base:
+        apiVersion: elasticache.aws.upbound.io/v1beta1
+        kind: ReplicationGroup
+        spec:
+          forProvider:
+            region: us-east-1
+            replicationGroupDescription: Redis for Cost Optimizer
+            engine: redis
+            engineVersion: "7.0"
+            nodeType: cache.t3.micro
+            numCacheClusters: 1
+            automaticFailoverEnabled: false
+            atRestEncryptionEnabled: true
+            transitEncryptionEnabled: true
+            subnetGroupNameSelector:
+              matchControllerRef: true
+            tags:
+              ManagedBy: crossplane
+              Application: cost-optimizer
+          writeConnectionSecretToRef:
+            namespace: crossplane-system
+
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.nodeType
+          toFieldPath: spec.forProvider.nodeType
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.tier
+          toFieldPath: spec.forProvider.numCacheClusters
+          transforms:
+            - type: map
+              map:
+                dev: 1
+                prod: 2
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.tier
+          toFieldPath: spec.forProvider.automaticFailoverEnabled
+          transforms:
+            - type: map
+              map:
+                dev: false
+                prod: true
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.primaryEndpointAddress
+          toFieldPath: status.endpoint
+
+      connectionDetails:
+        - name: host
+          fromConnectionSecretKey: primaryEndpointAddress
+        - name: port
+          fromConnectionSecretKey: port
+        - name: password
+          fromConnectionSecretKey: authToken

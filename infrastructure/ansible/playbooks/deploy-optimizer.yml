@@ -1,0 +1,113 @@
+---
+- name: Deploy K8s Cost Optimizer
+  hosts: "{{ target_env | default('dev') }}_clusters"
+  gather_facts: no
+  vars:
+    helm_release_name: "cost-optimizer"
+    helm_namespace: "{{ optimizer_namespace }}"
+
+  tasks:
+    - name: Display deployment target
+      ansible.builtin.debug:
+        msg: "Deploying to {{ cluster_name }} ({{ environment }})"
+
+    - name: Check cluster connectivity
+      kubernetes.core.k8s_cluster_info:
+        kubeconfig: "{{ kubeconfig }}"
+      register: cluster_info
+
+    - name: Display cluster version
+      ansible.builtin.debug:
+        msg: "Cluster version: {{ cluster_info.version.server.kubernetes.gitVersion }}"
+
+    - name: Create namespace if not exists
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig }}"
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: "{{ helm_namespace }}"
+            labels:
+              name: "{{ helm_namespace }}"
+              environment: "{{ environment }}"
+
+    - name: Add Helm repository (if using remote chart)
+      kubernetes.core.helm_repository:
+        name: cost-optimizer
+        repo_url: https://charts.example.com/cost-optimizer
+      when: use_remote_chart | default(false)
+
+    - name: Deploy optimizer using Helm
+      kubernetes.core.helm:
+        name: "{{ helm_release_name }}"
+        chart_ref: "{{ helm_chart_path }}"
+        release_namespace: "{{ helm_namespace }}"
+        kubeconfig: "{{ kubeconfig }}"
+        create_namespace: yes
+        wait: yes
+        wait_timeout: 10m
+        values_files:
+          - "{{ helm_chart_path }}/{{ helm_values_file }}"
+        values:
+          global:
+            environment: "{{ environment }}"
+          api:
+            image:
+              tag: "{{ api_image_tag | default('latest') }}"
+          dashboard:
+            image:
+              tag: "{{ dashboard_image_tag | default('latest') }}"
+
+    - name: Wait for API deployment to be ready
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig }}"
+        kind: Deployment
+        name: "{{ helm_release_name }}-api"
+        namespace: "{{ helm_namespace }}"
+        wait: yes
+        wait_condition:
+          type: Available
+          status: "True"
+        wait_timeout: 300
+
+    - name: Wait for Dashboard deployment to be ready
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig }}"
+        kind: Deployment
+        name: "{{ helm_release_name }}-dashboard"
+        namespace: "{{ helm_namespace }}"
+        wait: yes
+        wait_condition:
+          type: Available
+          status: "True"
+        wait_timeout: 300
+
+    - name: Get optimizer API service
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig }}"
+        kind: Service
+        name: "{{ helm_release_name }}-api"
+        namespace: "{{ helm_namespace }}"
+      register: api_service
+
+    - name: Display optimizer URLs
+      ansible.builtin.debug:
+        msg:
+          - "Optimizer deployed successfully!"
+          - "API Service: {{ api_service.resources[0].metadata.name }}"
+          - "Namespace: {{ helm_namespace }}"
+          - "Environment: {{ environment }}"
+
+    - name: Run health check
+      ansible.builtin.uri:
+        url: "http://{{ helm_release_name }}-api.{{ helm_namespace }}.svc.cluster.local:8000/health"
+        method: GET
+        return_content: yes
+      register: health_check
+      retries: 5
+      delay: 10
+      until: health_check.status == 200
+      delegate_to: localhost
+      when: run_health_check | default(true)

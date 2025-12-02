@@ -1,0 +1,50 @@
+---
+- name: Rollback K8s Cost Optimizer
+  hosts: "{{ target_env | default('dev') }}_clusters"
+  gather_facts: no
+  vars:
+    helm_release_name: "cost-optimizer"
+    helm_namespace: "{{ optimizer_namespace }}"
+
+  tasks:
+    - name: Display rollback target
+      ansible.builtin.debug:
+        msg: "Rolling back {{ cluster_name }} ({{ environment }})"
+
+    - name: Get release history
+      ansible.builtin.command:
+        cmd: "helm history {{ helm_release_name }} -n {{ helm_namespace }} --kubeconfig {{ kubeconfig }}"
+      register: release_history
+      changed_when: false
+
+    - name: Display release history
+      ansible.builtin.debug:
+        msg: "{{ release_history.stdout_lines }}"
+
+    - name: Rollback to previous revision
+      ansible.builtin.command:
+        cmd: >
+          helm rollback {{ helm_release_name }}
+          {% if revision is defined %}{{ revision }}{% endif %}
+          -n {{ helm_namespace }}
+          --kubeconfig {{ kubeconfig }}
+          --wait
+          --timeout 10m
+      register: rollback_result
+
+    - name: Display rollback result
+      ansible.builtin.debug:
+        msg: "{{ rollback_result.stdout_lines }}"
+
+    - name: Verify pods are running
+      kubernetes.core.k8s_info:
+        kubeconfig: "{{ kubeconfig }}"
+        kind: Pod
+        namespace: "{{ helm_namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/name=cost-optimizer"
+      register: pods
+
+    - name: Display pod status
+      ansible.builtin.debug:
+        msg: "{{ pods.resources | map(attribute='status.phase') | list }}"

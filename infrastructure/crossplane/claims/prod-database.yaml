@@ -1,0 +1,16 @@
+apiVersion: optimizer.k8s.io/v1alpha1
+kind: PostgresDatabase
+metadata:
+  name: prod-optimizer-db
+  namespace: cost-optimizer
+spec:
+  parameters:
+    storageGB: 100
+    version: "15"
+    tier: prod
+  compositionSelector:
+    matchLabels:
+      provider: aws
+      database: postgres
+  writeConnectionSecretToRef:
+    name: postgres-credentials

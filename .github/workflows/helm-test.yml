@@ -1,0 +1,191 @@
+name: Helm Chart Testing
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'infrastructure/helm/**'
+      - '.github/workflows/helm-test.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'infrastructure/helm/**'
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint Helm Charts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.6.0
+
+      - name: Run chart-testing (lint)
+        run: ct lint --config .github/ct.yaml --all
+
+      - name: Helm lint
+        run: |
+          helm lint infrastructure/helm/cost-optimizer
+          helm lint infrastructure/helm/cost-optimizer -f infrastructure/helm/cost-optimizer/values-prod.yaml
+
+  template:
+    name: Test Helm Templates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Template with default values
+        run: |
+          helm template test infrastructure/helm/cost-optimizer \
+            --namespace cost-optimizer \
+            --debug > /tmp/manifests-default.yaml
+
+      - name: Template with production values
+        run: |
+          helm template test infrastructure/helm/cost-optimizer \
+            --namespace cost-optimizer \
+            -f infrastructure/helm/cost-optimizer/values-prod.yaml \
+            --debug > /tmp/manifests-prod.yaml
+
+      - name: Validate templated manifests
+        run: |
+          kubectl --dry-run=client apply -f /tmp/manifests-default.yaml
+          kubectl --dry-run=client apply -f /tmp/manifests-prod.yaml
+
+      - name: Upload manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-manifests
+          path: /tmp/manifests-*.yaml
+          retention-days: 7
+
+  install-test:
+    name: Install and Test Charts
+    runs-on: ubuntu-latest
+    needs: [lint, template]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.6.0
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.8.0
+        with:
+          cluster_name: chart-testing
+          kubectl_version: v1.28.0
+
+      - name: Create test secrets
+        run: |
+          kubectl create namespace cost-optimizer
+          kubectl create secret generic postgres-credentials \
+            --from-literal=host=postgres \
+            --from-literal=port=5432 \
+            --from-literal=database=k8s_optimizer \
+            --from-literal=username=test \
+            --from-literal=password=test \
+            -n cost-optimizer
+          kubectl create secret generic redis-credentials \
+            --from-literal=host=redis \
+            --from-literal=port=6379 \
+            --from-literal=password="" \
+            -n cost-optimizer
+          kubectl create secret generic storage-credentials \
+            --from-literal=endpoint=http://minio:9000 \
+            --from-literal=bucket=test \
+            --from-literal=access_key=test \
+            --from-literal=secret_key=test \
+            -n cost-optimizer
+
+      - name: Install chart
+        run: |
+          helm install test infrastructure/helm/cost-optimizer \
+            --namespace cost-optimizer \
+            --wait \
+            --timeout 5m \
+            --set api.image.tag=test \
+            --set dashboard.image.tag=test
+
+      - name: Test chart
+        run: |
+          helm test test --namespace cost-optimizer
+
+      - name: Check pod status
+        if: always()
+        run: |
+          kubectl get pods -n cost-optimizer
+          kubectl describe pods -n cost-optimizer
+
+      - name: Get logs
+        if: always()
+        run: |
+          kubectl logs -l app.kubernetes.io/name=cost-optimizer -n cost-optimizer --all-containers=true --tail=100
+
+      - name: Uninstall chart
+        if: always()
+        run: |
+          helm uninstall test --namespace cost-optimizer
+
+  package:
+    name: Package Helm Chart
+    runs-on: ubuntu-latest
+    needs: [lint, template, install-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Package chart
+        run: |
+          helm package infrastructure/helm/cost-optimizer --destination .helm-packages
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-package
+          path: .helm-packages/*.tgz
+          retention-days: 30
+
+      - name: Publish to Helm Repository (optional)
+        if: false  # Enable when you have a Helm repository
+        run: |
+          # helm repo add my-repo https://charts.example.com
+          # helm push .helm-packages/*.tgz my-repo
+          echo "Helm repository publishing disabled"

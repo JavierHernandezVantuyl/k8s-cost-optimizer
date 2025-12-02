@@ -1,0 +1,37 @@
+---
+# Deployment tasks for optimizer
+
+- name: Deploy optimizer using Helm
+  kubernetes.core.helm:
+    name: "{{ helm_release_name | default('cost-optimizer') }}"
+    chart_ref: "{{ helm_chart_path }}"
+    release_namespace: "{{ optimizer_namespace }}"
+    kubeconfig: "{{ kubeconfig }}"
+    create_namespace: yes
+    wait: yes
+    wait_timeout: 10m
+    atomic: yes
+    values_files:
+      - "{{ helm_chart_path }}/{{ helm_values_file }}"
+    values:
+      global:
+        environment: "{{ environment }}"
+      api:
+        image:
+          tag: "{{ api_image_tag | default('latest') }}"
+      dashboard:
+        image:
+          tag: "{{ dashboard_image_tag | default('latest') }}"
+
+- name: Wait for deployments to be ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubeconfig }}"
+    kind: Deployment
+    namespace: "{{ optimizer_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/name=cost-optimizer"
+    wait: yes
+    wait_condition:
+      type: Available
+      status: "True"
+    wait_timeout: 300

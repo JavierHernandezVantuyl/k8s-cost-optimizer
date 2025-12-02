@@ -1,0 +1,72 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cost-optimizer
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/name: cost-optimizer
+  app.kubernetes.io/managed-by: kustomize
+
+# Common annotations
+commonAnnotations:
+  managed-by: kustomize
+
+resources:
+  - resources/namespace.yaml
+  - resources/serviceaccount.yaml
+  - resources/rbac.yaml
+  - resources/api-deployment.yaml
+  - resources/api-service.yaml
+  - resources/dashboard-deployment.yaml
+  - resources/dashboard-service.yaml
+
+# ConfigMap generator
+configMapGenerator:
+  - name: optimizer-config
+    literals:
+      - LOG_LEVEL=INFO
+      - METRICS_ENABLED=true
+      - METRICS_PORT=9090
+      - ANALYSIS_INTERVAL=6h
+      - MIN_CONFIDENCE=0.7
+      - ENABLE_AUTO_APPLY=false
+      - DRY_RUN_MODE=true
+      - CLOUD_PROVIDERS=aws,gcp,azure
+
+# Secret generator (use external secrets in production)
+secretGenerator:
+  - name: postgres-credentials
+    literals:
+      - host=changeme
+      - port=5432
+      - database=k8s_optimizer
+      - username=optimizer
+      - password=changeme
+  - name: redis-credentials
+    literals:
+      - host=changeme
+      - port=6379
+      - password=""
+  - name: storage-credentials
+    literals:
+      - endpoint=changeme
+      - bucket=optimizer-data
+      - access_key=changeme
+      - secret_key=changeme
+
+# Image transformations
+images:
+  - name: optimizer-api
+    newName: your-registry/k8s-cost-optimizer-api
+    newTag: latest
+  - name: optimizer-dashboard
+    newName: your-registry/k8s-cost-optimizer-dashboard
+    newTag: latest
+
+# Replicas
+replicas:
+  - name: optimizer-api
+    count: 2
+  - name: optimizer-dashboard
+    count: 2

@@ -1,0 +1,30 @@
+# Example terraform.tfvars for Development Environment
+# Copy this file to terraform.tfvars and fill in your values
+
+# Kubernetes Configuration
+kubeconfig_path = "~/.kube/config"
+cost_center     = "development"
+
+# Database Configuration
+postgres_host     = "localhost"
+postgres_port     = 5432
+postgres_database = "k8s_optimizer"
+postgres_username = "optimizer"
+postgres_password = "change-me-in-production"
+
+# Redis Configuration
+redis_host     = "localhost"
+redis_port     = 6379
+redis_password = ""
+
+# Storage Configuration (MinIO or S3)
+storage_endpoint   = "http://localhost:9000"
+storage_access_key = "minioadmin"
+storage_secret_key = "minioadmin123"
+storage_bucket     = "optimizer-dev-data"
+
+# Application Images
+api_image           = "your-registry/k8s-cost-optimizer-api"
+api_image_tag       = "dev"
+dashboard_image     = "your-registry/k8s-cost-optimizer-dashboard"
+dashboard_image_tag = "dev"

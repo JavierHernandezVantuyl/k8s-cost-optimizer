@@ -1,0 +1,57 @@
+---
+- name: Upgrade K8s Cost Optimizer
+  hosts: "{{ target_env | default('dev') }}_clusters"
+  gather_facts: no
+  vars:
+    helm_release_name: "cost-optimizer"
+    helm_namespace: "{{ optimizer_namespace }}"
+
+  tasks:
+    - name: Display upgrade target
+      ansible.builtin.debug:
+        msg: "Upgrading {{ cluster_name }} ({{ environment }})"
+
+    - name: Get current release info
+      kubernetes.core.helm_info:
+        name: "{{ helm_release_name }}"
+        release_namespace: "{{ helm_namespace }}"
+        kubeconfig: "{{ kubeconfig }}"
+      register: current_release
+
+    - name: Display current version
+      ansible.builtin.debug:
+        msg: "Current chart version: {{ current_release.status.chart }}"
+
+    - name: Upgrade optimizer using Helm
+      kubernetes.core.helm:
+        name: "{{ helm_release_name }}"
+        chart_ref: "{{ helm_chart_path }}"
+        release_namespace: "{{ helm_namespace }}"
+        kubeconfig: "{{ kubeconfig }}"
+        wait: yes
+        wait_timeout: 10m
+        atomic: yes
+        force: no
+        values_files:
+          - "{{ helm_chart_path }}/{{ helm_values_file }}"
+        values:
+          api:
+            image:
+              tag: "{{ api_image_tag }}"
+          dashboard:
+            image:
+              tag: "{{ dashboard_image_tag }}"
+
+    - name: Get new release info
+      kubernetes.core.helm_info:
+        name: "{{ helm_release_name }}"
+        release_namespace: "{{ helm_namespace }}"
+        kubeconfig: "{{ kubeconfig }}"
+      register: new_release
+
+    - name: Display upgrade status
+      ansible.builtin.debug:
+        msg:
+          - "Upgrade completed successfully!"
+          - "New chart version: {{ new_release.status.chart }}"
+          - "Revision: {{ new_release.status.revision }}"

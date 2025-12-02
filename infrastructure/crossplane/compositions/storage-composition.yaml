@@ -1,0 +1,127 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xobjectstorages.optimizer.k8s.io
+spec:
+  group: optimizer.k8s.io
+  names:
+    kind: XObjectStorage
+    plural: xobjectstorages
+  claimNames:
+    kind: ObjectStorage
+    plural: objectstorages
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    bucketName:
+                      type: string
+                    tier:
+                      type: string
+                      enum: [dev, prod]
+                      default: dev
+                  required:
+                    - bucketName
+                    - tier
+              required:
+                - parameters
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: storage-aws
+  labels:
+    provider: aws
+    storage: s3
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: optimizer.k8s.io/v1alpha1
+    kind: XObjectStorage
+
+  resources:
+    - name: s3-bucket
+      base:
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: Bucket
+        spec:
+          forProvider:
+            region: us-east-1
+            tags:
+              ManagedBy: crossplane
+              Application: cost-optimizer
+          writeConnectionSecretToRef:
+            namespace: crossplane-system
+
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.bucketName
+          toFieldPath: metadata.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.arn
+          toFieldPath: status.bucketArn
+
+    - name: s3-bucket-versioning
+      base:
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketVersioningV2
+        spec:
+          forProvider:
+            region: us-east-1
+            bucketSelector:
+              matchControllerRef: true
+            versioningConfiguration:
+              - status: Enabled
+
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.tier
+          toFieldPath: spec.forProvider.versioningConfiguration[0].status
+          transforms:
+            - type: map
+              map:
+                dev: Disabled
+                prod: Enabled
+
+    - name: s3-bucket-encryption
+      base:
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketServerSideEncryptionConfigurationV2
+        spec:
+          forProvider:
+            region: us-east-1
+            bucketSelector:
+              matchControllerRef: true
+            rule:
+              - applyServerSideEncryptionByDefault:
+                  - sseAlgorithm: AES256
+
+    - name: s3-bucket-public-access-block
+      base:
+        apiVersion: s3.aws.upbound.io/v1beta1
+        kind: BucketPublicAccessBlock
+        spec:
+          forProvider:
+            region: us-east-1
+            bucketSelector:
+              matchControllerRef: true
+            blockPublicAcls: true
+            blockPublicPolicy: true
+            ignorePublicAcls: true
+            restrictPublicBuckets: true
+
+      connectionDetails:
+        - name: bucket
+          fromFieldPath: metadata.name
+        - name: region
+          fromValue: us-east-1
