@@ -1,0 +1,64 @@
+# Multi-Cloud Cost Comparison Scenario
+
+name: Multi-Cloud Provider Comparison
+description: Compare costs for identical workload across AWS, GCP, and Azure
+
+workload_spec:
+  compute:
+    - {name: "web-tier", cpu: 4, memory: 16, replicas: 10}
+    - {name: "api-tier", cpu: 8, memory: 32, replicas: 5}
+    - {name: "worker", cpu: 2, memory: 8, replicas: 20}
+    - {name: "database", cpu: 16, memory: 64, replicas: 3}
+
+  storage:
+    - {type: "ssd", size_gb: 5000}
+    - {type: "hdd", size_gb: 20000}
+
+  network:
+    egress_gb_month: 10000
+
+cost_comparison:
+  aws:
+    compute: 12450
+    storage: 1280
+    network: 920
+    total: 14650
+    instance_types:
+      web: "t3.xlarge"
+      api: "m5.2xlarge"
+      worker: "t3.large"
+
+  gcp:
+    compute: 11200
+    storage: 1150
+    network: 850
+    total: 13200
+    savings_vs_aws: 1450
+    instance_types:
+      web: "n2-standard-4"
+      api: "n2-standard-8"
+      worker: "n2-standard-2"
+
+  azure:
+    compute: 11800
+    storage: 1220
+    network: 890
+    total: 13910
+    savings_vs_aws: 740
+    instance_types:
+      web: "Standard_D4s_v3"
+      api: "Standard_D8s_v3"
+      worker: "Standard_D2s_v3"
+
+recommendation:
+  primary_cloud: gcp
+  reason: "Lowest total cost with best compute pricing"
+  monthly_savings: 1450
+  annual_savings: 17400
+
+  hybrid_strategy:
+    compute: gcp
+    storage: aws  # S3 pricing advantage
+    network: azure  # Better CDN pricing
+    total_cost: 12950
+    additional_savings: 250

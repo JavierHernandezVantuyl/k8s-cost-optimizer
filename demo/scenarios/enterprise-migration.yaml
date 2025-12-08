@@ -1,0 +1,42 @@
+# Enterprise Multi-Cloud Migration Scenario
+#
+# Scenario: Large enterprise optimizing across AWS, GCP, and Azure
+# Scale: 500+ workloads, $850K/month infrastructure spend
+
+name: Enterprise Multi-Cloud Optimization
+description: |
+  Global Corp operates workloads across AWS, GCP, and Azure.
+  Goal: Optimize placement and reduce costs by 35-40% ($300K+/month)
+
+initial_state:
+  monthly_cost: 850000
+  clusters:
+    aws_production: {cost: 450000, workloads: 280, region: "us-east-1"}
+    aws_europe: {cost: 180000, workloads: 120, region: "eu-west-1"}
+    gcp_analytics: {cost: 150000, workloads: 80, region: "us-central1"}
+    azure_ml: {cost: 70000, workloads: 50, region: "eastus"}
+
+optimization_areas:
+  cross_cloud_optimization:
+    savings: 180000
+    strategies:
+      - Move analytics to GCP (better pricing)
+      - Consolidate AWS regions
+      - Use Azure spot for ML training
+
+  right_sizing:
+    savings: 120000
+    impact: 320 workloads
+
+  reserved_instances:
+    savings: 85000
+    coverage: 60% of stable workloads
+
+  spot_instances:
+    savings: 95000
+    workloads: 150 (batch, ML, dev/test)
+
+expected_results:
+  new_monthly_cost: 530000
+  annual_savings: 3840000
+  savings_percentage: 37.6

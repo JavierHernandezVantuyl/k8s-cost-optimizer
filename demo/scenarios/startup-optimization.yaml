@@ -1,0 +1,93 @@
+# Startup Optimization Scenario
+#
+# Scenario: Fast-growing startup needs to reduce cloud costs before next funding round
+# Goal: Achieve 40%+ cost reduction without impacting performance
+# Timeline: 2 weeks
+
+name: Startup Cost Emergency
+description: |
+  TechStart Inc. is a Series A startup running a SaaS platform on AWS.
+  They're burning $45,000/month on infrastructure and need to cut costs
+  before their next funding round in 2 weeks.
+
+initial_state:
+  monthly_cost: 45000
+  clusters:
+    - name: production-cluster
+      provider: aws
+      region: us-east-1
+      node_count: 25
+      workloads: 45
+
+  pain_points:
+    - Over-provisioned resources from rapid growth
+    - No autoscaling configured
+    - Running everything on-demand instances
+    - Multiple small deployments that could be consolidated
+
+  business_constraints:
+    - Cannot have downtime during business hours (9 AM - 6 PM EST)
+    - Must maintain current performance levels
+    - Limited DevOps resources (2 engineers)
+    - Need quick wins within 2 weeks
+
+optimization_strategy:
+  phase1_quick_wins:
+    - name: Right-size over-provisioned workloads
+      workloads: 30
+      expected_savings: 12000
+      time_to_implement: 3 days
+      risk: low
+
+    - name: Enable HPA for variable workloads
+      workloads: 15
+      expected_savings: 6000
+      time_to_implement: 2 days
+      risk: low
+
+  phase2_spot_instances:
+    - name: Convert batch jobs to spot
+      workloads: 8
+      expected_savings: 5000
+      time_to_implement: 4 days
+      risk: medium
+
+    - name: Mixed spot/on-demand for web tier
+      workloads: 10
+      expected_savings: 3500
+      time_to_implement: 5 days
+      risk: medium
+
+  phase3_consolidation:
+    - name: Consolidate small deployments
+      workloads: 12
+      expected_savings: 2500
+      time_to_implement: 3 days
+      risk: low
+
+expected_results:
+  total_savings: 29000
+  new_monthly_cost: 16000
+  savings_percentage: 64.4
+  implementation_time: 14 days
+
+  impact:
+    performance: "No degradation - improved with HPA"
+    availability: "Improved from 99.5% to 99.9%"
+    team_effort: "Minimal - mostly automated"
+
+success_metrics:
+  - metric: Monthly infrastructure cost
+    before: $45,000
+    after: $16,000
+    improvement: 64.4%
+
+  - metric: Average response time
+    before: 245ms
+    after: 220ms
+    improvement: 10.2%
+
+  - metric: Resource utilization
+    before: 28%
+    after: 65%
+    improvement: 132%

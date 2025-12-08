@@ -1,0 +1,84 @@
+# Emergency Cost Reduction Scenario
+
+name: Emergency 50% Cost Reduction
+description: |
+  Urgent scenario: Company must reduce infrastructure costs by 50%
+  within 48 hours due to unexpected budget cuts.
+
+situation:
+  current_monthly_cost: 120000
+  target_cost: 60000
+  timeline: 48 hours
+  cannot_impact: ["production-critical-services"]
+
+immediate_actions:
+  hour_0_6:
+    - action: "Terminate all dev/test environments"
+      savings: 18000
+      risk: none
+      impact: "Development paused temporarily"
+
+    - action: "Scale down staging to 25%"
+      savings: 8000
+      risk: low
+      impact: "Limited staging capacity"
+
+    - action: "Stop all non-essential batch jobs"
+      savings: 6000
+      risk: low
+      impact: "Analytics delayed"
+
+  hour_6_24:
+    - action: "Aggressive right-sizing (automated)"
+      workloads: 80
+      savings: 22000
+      risk: medium
+      impact: "Monitoring required"
+
+    - action: "Convert all suitable workloads to spot"
+      workloads: 45
+      savings: 12000
+      risk: medium
+      impact: "Some interruptions possible"
+
+  hour_24_48:
+    - action: "Consolidate databases"
+      savings: 8000
+      risk: high
+      impact: "Requires careful migration"
+
+    - action: "Reduce data retention"
+      savings: 4000
+      risk: low
+      impact: "90 days → 30 days retention"
+
+results:
+  total_savings: 78000
+  final_monthly_cost: 42000
+  savings_percentage: 65
+  exceeded_target: true
+
+  temporary_measures:
+    - "Dev environments off (restore: 2 weeks)"
+    - "Staging at 25% (restore: 1 month)"
+    - "Batch jobs paused (restart: priority-based)"
+
+  permanent_optimizations:
+    - "Right-sizing (keep)"
+    - "Spot instances (keep)"
+    - "Reduced retention (keep)"
+
+recovery_plan:
+  week_1_2:
+    - Restore dev environments with optimized sizing
+    - Cost: $8,000/month (vs. $18,000 before)
+
+  week_3_4:
+    - Scale up staging gradually
+    - Resume critical batch jobs
+    - Cost: $12,000/month additional
+
+  final_stable_state:
+    monthly_cost: 62000
+    vs_original: 48% reduction
+    vs_target: 97% within target
