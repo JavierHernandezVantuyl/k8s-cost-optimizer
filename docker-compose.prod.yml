@@ -1,0 +1,503 @@
+version: '3.8'
+
+# Production Docker Compose Configuration
+# Includes resource limits, health checks, restart policies, and security hardening
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: k8s-optimizer-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-k8s_optimizer}
+      POSTGRES_USER: ${POSTGRES_USER:-optimizer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}  # Must be set in .env
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"  # Bind to localhost only
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - ./backups/postgres:/backups:rw
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "default_statistics_target=100"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=2MB"
+      - "-c"
+      - "min_wal_size=1GB"
+      - "-c"
+      - "max_wal_size=4GB"
+      - "-c"
+      - "log_statement=mod"
+      - "-c"
+      - "log_duration=on"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-optimizer} -d ${POSTGRES_DB:-k8s_optimizer}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=postgres,env=production"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - optimizer-network
+    labels:
+      com.k8s-optimizer.service: "postgres"
+      com.k8s-optimizer.env: "production"
+
+  redis:
+    image: redis:7-alpine
+    container_name: k8s-optimizer-redis-prod
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --loglevel notice
+      --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"  # Bind to localhost only
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=redis,env=production"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - optimizer-network
+    labels:
+      com.k8s-optimizer.service: "redis"
+      com.k8s-optimizer.env: "production"
+
+  minio:
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    container_name: k8s-optimizer-minio-prod
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}  # Must be set in .env
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}  # Must be set in .env
+      MINIO_BROWSER: "on"
+      MINIO_PROMETHEUS_AUTH_TYPE: "public"
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=minio,env=production"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - optimizer-network
+    labels:
+      com.k8s-optimizer.service: "minio"
+      com.k8s-optimizer.env: "production"
+
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: k8s-optimizer-prometheus-prod
+    restart: unless-stopped
+    user: "65534:65534"  # nobody user
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.enable-admin-api'
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=prometheus,env=production"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - optimizer-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      com.k8s-optimizer.service: "prometheus"
+      com.k8s-optimizer.env: "production"
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: k8s-optimizer-grafana-prod
+    restart: unless-stopped
+    user: "472:472"  # grafana user
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}  # Must be set in .env
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3001}
+      GF_INSTALL_PLUGINS: ""
+      GF_SECURITY_COOKIE_SECURE: "true"
+      GF_SECURITY_COOKIE_SAMESITE: "strict"
+      GF_SECURITY_STRICT_TRANSPORT_SECURITY: "true"
+      GF_SECURITY_X_CONTENT_TYPE_OPTIONS: "true"
+      GF_SECURITY_X_XSS_PROTECTION: "true"
+      GF_LOG_MODE: "console file"
+      GF_LOG_LEVEL: "info"
+      GF_METRICS_ENABLED: "true"
+      GF_DATABASE_WAL: "true"
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=grafana,env=production"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - optimizer-network
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    labels:
+      com.k8s-optimizer.service: "grafana"
+      com.k8s-optimizer.env: "production"
+
+  # Optimizer API (placeholder - to be implemented)
+  api:
+    image: ghcr.io/yourusername/optimizer-api:${VERSION:-latest}
+    container_name: k8s-optimizer-api-prod
+    restart: unless-stopped
+    environment:
+      ENV: production
+      LOG_LEVEL: ${API_LOG_LEVEL:-info}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_WORKERS: ${API_WORKERS:-4}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-k8s_optimizer}
+      POSTGRES_USER: ${POSTGRES_USER:-optimizer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      ML_CONFIDENCE_THRESHOLD: ${ML_CONFIDENCE_THRESHOLD:-0.8}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    # Uncomment when API is ready
+    # volumes:
+    #   - ./services/optimizer-api:/app:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=api,env=production"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - optimizer-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    labels:
+      com.k8s-optimizer.service: "api"
+      com.k8s-optimizer.env: "production"
+
+  # Dashboard (placeholder - to be implemented)
+  dashboard:
+    image: ghcr.io/yourusername/optimizer-dashboard:${VERSION:-latest}
+    container_name: k8s-optimizer-dashboard-prod
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${API_URL:-http://localhost:8000}
+      VITE_WS_URL: ${WS_URL:-ws://localhost:8000}
+      NODE_ENV: production
+    ports:
+      - "${DASHBOARD_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=dashboard,env=production"
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    networks:
+      - optimizer-network
+    depends_on:
+      api:
+        condition: service_healthy
+    labels:
+      com.k8s-optimizer.service: "dashboard"
+      com.k8s-optimizer.env: "production"
+
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: k8s-optimizer-nginx-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=nginx,env=production"
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - optimizer-network
+    depends_on:
+      - api
+      - dashboard
+    labels:
+      com.k8s-optimizer.service: "nginx"
+      com.k8s-optimizer.env: "production"
+
+networks:
+  optimizer-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-optimizer
+      com.docker.network.driver.mtu: 1500
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+    labels:
+      com.k8s-optimizer.network: "main"
+      com.k8s-optimizer.env: "production"
+
+volumes:
+  postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_DATA_PATH:-./data/postgres}
+    labels:
+      com.k8s-optimizer.volume: "postgres"
+      com.k8s-optimizer.env: "production"
+
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_DATA_PATH:-./data/redis}
+    labels:
+      com.k8s-optimizer.volume: "redis"
+      com.k8s-optimizer.env: "production"
+
+  minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${MINIO_DATA_PATH:-./data/minio}
+    labels:
+      com.k8s-optimizer.volume: "minio"
+      com.k8s-optimizer.env: "production"
+
+  prometheus_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PROMETHEUS_DATA_PATH:-./data/prometheus}
+    labels:
+      com.k8s-optimizer.volume: "prometheus"
+      com.k8s-optimizer.env: "production"
+
+  grafana_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${GRAFANA_DATA_PATH:-./data/grafana}
+    labels:
+      com.k8s-optimizer.volume: "grafana"
+      com.k8s-optimizer.env: "production"
+
+  nginx_logs:
+    driver: local
+    labels:
+      com.k8s-optimizer.volume: "nginx-logs"
+      com.k8s-optimizer.env: "production"
